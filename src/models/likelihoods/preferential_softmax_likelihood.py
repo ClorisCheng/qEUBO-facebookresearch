@@ -5,7 +5,7 @@ from botorch.sampling import SobolQMCNormalSampler
 from botorch.posteriors.gpytorch import GPyTorchPosterior
 from gpytorch.distributions import base_distributions
 from gpytorch.likelihoods import Likelihood
-
+from torch.distributions.distribution import Distribution
 
 class PreferentialSoftmaxLikelihood(Likelihood):
     r"""
@@ -46,6 +46,56 @@ class PreferentialSoftmaxLikelihood(Likelihood):
         if num_alternatives != self.num_alternatives:
             raise RuntimeError("There should be %d points" % self.num_alternatives)
 
-        res = base_distributions.Categorical(logits=function_samples)  # Passing the
-        # function values as logits recovers the softmax likelihood
+        # res = base_distributions.Categorical(logits=function_samples)  # Passing the
+        # # function values as logits recovers the softmax likelihood
+        # return res
+
+        res = MonteCarloLikelihood(function_samples)
         return res
+
+class MonteCarloLikelihood(Distribution):
+    def __init__(self, f_vals, mc_samples=1000, mu=0, beta=1, temperature=0.01):
+        super().__init__()
+        assert(f_vals.shape[-1]) > 2 # at least 3 attributes
+        self.f_vals = f_vals
+        self.logits = f_vals - f_vals.logsumexp(dim=-1, keepdim=True)
+        self.mc_samples = mc_samples
+        self.mu = mu
+        self.beta = beta
+        self.temperature = temperature
+        
+    def log_prob(self, value, reuse_across_points=False):
+        '''
+        Args:
+            value: (n, ) tensor of indices
+            reuse_across_points: if True, reuse the same epsilon across all points
+        Returns:
+            log_prob: (sampler_size, n) tensor of log probabilities
+        '''
+        q = self.f_vals.shape[-1]
+        n = self.f_vals.shape[-2]
+        sampler_size = self.f_vals.shape[-3]
+        
+        if reuse_across_points:
+            eps_smpl = torch.rand(self.mc_samples, q)
+            eps_smpl = eps_smpl[None, ...].repeat((n, 1, 1)) # (n, mc_samples, q)
+        else:
+            eps_smpl = torch.rand(n, self.mc_samples, q)
+                
+        # Gumbel: mu - beta * log(-log(U))
+        gumbel_param = 0
+        eps_smpl = -torch.log(-torch.log(eps_smpl)) + gumbel_param # (n, mc_samples, q)
+
+        # add extra dimension to f_vals to broadcast across mc_samples
+        f_vals = self.f_vals.reshape((sampler_size, n, 1, q)).repeat((1, 1, self.mc_samples, 1)) # (sampler_size, n, mc_samples, q)
+        # reuse epsilon across sampler_size
+        eps_smpl = eps_smpl.reshape((1, n, self.mc_samples, q)).repeat((sampler_size, 1, 1, 1)) # (sampler_size, n, mc_samples, q)
+        y_vals = f_vals + eps_smpl
+        like = torch.softmax(y_vals / self.temperature, dim=-1) # (sampler_size, n, q)
+        like = torch.mean(like, dim=-2) # (sampler_size, n, q)
+        # expand index to select repeatedly across sampler_size
+        value = value[None, :, None].expand(sampler_size, -1, -1) # (sampler_size, n, 1)
+        like = torch.gather(like, 2, value).squeeze(-1) # (sampler_size, n)
+        
+        return torch.log(like)
+    
