@@ -21,9 +21,10 @@ def fit_model(
     responses: Tensor,
     model_type: str,
     likelihood: Optional[str] = "logit",
+    base_distribution: Optional[str] = "mclike",
 ):
     if model_type == "variational_preferential_gp":
-        model = VariationalPreferentialGP(queries, responses)
+        model = VariationalPreferentialGP(queries, responses, base_distribution=base_distribution)
         model.train()
         model.likelihood.train()
         mll = VariationalELBO(
@@ -31,7 +32,7 @@ def fit_model(
             model=model,
             num_data=2 * model.num_data,
         )
-        mll = fit_gpytorch_mll(mll)
+        mll = fit_gpytorch_mll(mll) # TODO: train with gradient descent
         model.eval()
         model.likelihood.eval()
     return model

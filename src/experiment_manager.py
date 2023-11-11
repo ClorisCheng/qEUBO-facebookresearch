@@ -22,6 +22,7 @@ def experiment_manager(
     add_baseline_point: bool = False,
     ignore_failures: bool = False,
     algo_params: Optional[Dict] = None,
+    mclike=False,
 ) -> None:
     r"""
     Args:
@@ -57,4 +58,5 @@ def experiment_manager(
             model_type=model_type,
             add_baseline_point=add_baseline_point,
             ignore_failures=ignore_failures,
+            mclike=mclike,
         )

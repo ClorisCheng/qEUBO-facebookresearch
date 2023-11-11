@@ -54,6 +54,11 @@ if len(sys.argv) == 3:
 elif len(sys.argv) == 2:
     first_trial = int(sys.argv[1])
     last_trial = int(sys.argv[1])
+else:
+    first_trial = 1
+    last_trial = 3
+
+use_mclike = True
 
 experiment_manager(
     problem="ackley",
@@ -62,10 +67,11 @@ experiment_manager(
     noise_type=noise_type,
     noise_level=noise_level,
     algo=algo,
-    num_alternatives=2,
+    num_alternatives=3,
     num_init_queries=4 * input_dim,
     num_algo_queries=150,
     first_trial=first_trial,
     last_trial=last_trial,
-    restart=False,
+    restart=True,
+    mclike=use_mclike,
 )

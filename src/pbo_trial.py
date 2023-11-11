@@ -48,9 +48,12 @@ def pbo_trial(
     add_baseline_point: bool,
     ignore_failures: bool,
     algo_params: Optional[Dict] = None,
+    mclike=False,
 ) -> None:
 
     algo_id = algo + "_" + str(num_alternatives)  # Append q to algo ID
+    if mclike:
+        algo_id += "_mclike"
 
     # Get script directory
     script_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -111,6 +114,7 @@ def pbo_trial(
                 responses,
                 model_type=model_type,
                 likelihood=noise_type,
+                base_distribution="mclike" if mclike else "categorical",
             )
             t1 = time.time()
             model_training_time = t1 - t0
@@ -138,6 +142,7 @@ def pbo_trial(
                 responses,
                 model_type=model_type,
                 likelihood=noise_type,
+                base_distribution="mclike" if mclike else "categorical",
             )
             t1 = time.time()
             model_training_time = t1 - t0
@@ -176,6 +181,7 @@ def pbo_trial(
             responses,
             model_type=model_type,
             likelihood=noise_type,
+            base_distribution="mclike" if mclike else "categorical",
         )
         t1 = time.time()
         model_training_time = t1 - t0
@@ -215,7 +221,7 @@ def pbo_trial(
         )
         t1 = time.time()
         acquisition_time = t1 - t0
-        runtimes.append(acquisition_time + model_training_time)
+        runtimes.append((acquisition_time, model_training_time))
 
         # Get response at new query
         new_obj_vals = get_obj_vals(new_query, obj_func)
@@ -235,6 +241,7 @@ def pbo_trial(
             responses,
             model_type=model_type,
             likelihood=noise_type,
+            base_distribution="mclike" if mclike else "categorical",
         )
         t1 = time.time()
         model_training_time = t1 - t0

@@ -23,6 +23,9 @@ from src.models.likelihoods.preferential_softmax_likelihood import (
     PreferentialSoftmaxLikelihood,
 )
 
+from src.models.likelihoods.preferential_softmax_mc_likelihood import (
+    PreferentialSoftmaxMCLikelihood,
+)
 
 class VariationalPreferentialGP(GPyTorchModel, ApproximateGP):
     def __init__(
@@ -31,6 +34,7 @@ class VariationalPreferentialGP(GPyTorchModel, ApproximateGP):
         responses: Tensor,
         use_withening: bool = True,
         covar_module: Optional[Kernel] = None,
+        base_distribution: str = "mclike",
     ) -> None:
         r"""
         Args:
@@ -83,7 +87,10 @@ class VariationalPreferentialGP(GPyTorchModel, ApproximateGP):
                 learn_inducing_locations=False,
             )
         super().__init__(variational_strategy)
-        self.likelihood = PreferentialSoftmaxLikelihood(num_alternatives=self.q)
+        if base_distribution == "mclike":
+            self.likelihood = PreferentialSoftmaxMCLikelihood(num_alternatives=self.q, base_distribution=base_distribution)
+        else:
+            self.likelihood = PreferentialSoftmaxLikelihood(num_alternatives=self.q, base_distribution=base_distribution)
         self.mean_module = ConstantMean()
         scales = bounds[1, :] - bounds[0, :]
 
